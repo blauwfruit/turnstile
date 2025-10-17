@@ -1,0 +1,30 @@
+{
+    "name": "blauwfruit/turnstile",
+    "description": "Cloudflare Turnstile module for PrestaShop - Replace reCaptcha with user-friendly bot protection",
+    "type": "prestashop-module",
+    "keywords": [
+        "prestashop",
+        "module",
+        "cloudflare",
+        "turnstile",
+        "captcha",
+        "security",
+        "bot-protection"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "blauwfruit",
+            "email": "support@blauwfruit.nl"
+        }
+    ],
+    "require": {
+        "php": ">=7.1.0"
+    },
+    "autoload": {
+        "classmap": [
+            "turnstile.php"
+        ]
+    }
+}
+

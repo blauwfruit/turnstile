@@ -1,0 +1,13 @@
+{
+  "name": "turnstile-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Turnstile PrestaShop module",
+  "private": true,
+  "scripts": {
+    "test": "node test-turnstile.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}
+

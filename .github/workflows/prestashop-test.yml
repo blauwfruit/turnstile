@@ -1,0 +1,101 @@
+name: PrestaShop Module Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        prestashop-version: ['1.7.6.1']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Test with PrestaShop ${{ matrix.prestashop-version }}
+      run: |
+        export TAG=${{ matrix.prestashop-version }}
+        docker compose up -d
+        sleep 60
+        docker compose ps
+        docker compose logs apache
+
+    - name: Wait for server to be ready
+      run: |
+        timeout=300
+        counter=0
+        echo "Waiting for PrestaShop to be ready..."
+        until $(curl --output /dev/null --silent --head --fail http://localhost); do
+          if [ $counter -ge $timeout ]; then
+            echo "Timed out waiting for PrestaShop to start"
+            exit 1
+          fi
+          printf '.'
+          sleep 5
+          counter=$((counter+5))
+        done
+        echo "PrestaShop is ready!"
+
+    - name: Check PrestaShop is running
+      run: |
+        curl -f http://localhost || exit 1
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install and configure Turnstile module
+      run: |
+        PS_VERSION=$(docker compose exec -T apache php -r "echo substr(_PS_VERSION_, 0, 1);")
+        if [ "$PS_VERSION" -ge "8" ]; then
+          # For PrestaShop 8+, use CLI commands
+          docker compose exec -T apache php bin/console prestashop:module install turnstile
+          docker compose exec -T apache php bin/console prestashop:config set TURNSTILE_ENABLED 1
+          docker compose exec -T apache php bin/console prestashop:config set TURNSTILE_SITE_KEY "1x00000000000000000000AA"
+          docker compose exec -T apache php bin/console prestashop:config set TURNSTILE_SECRET_KEY "1x0000000000000000000000000000000AA"
+          echo "Module installed and configured via CLI commands"
+        else
+          # For PrestaShop 7 and below, use PHP code
+          docker compose exec -T apache php -r "
+          require_once('/var/www/html/config/config.inc.php');
+          \$module = Module::getInstanceByName('turnstile');
+          if (!\$module) {
+            echo 'Module not found' . PHP_EOL;
+            exit(1);
+          }
+          if (!\$module->install()) {
+            echo 'Failed to install module' . PHP_EOL;
+            exit(1);
+          }
+          echo 'Module installed successfully' . PHP_EOL;
+          Configuration::updateValue('TURNSTILE_ENABLED', 1);
+          Configuration::updateValue('TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+          Configuration::updateValue('TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA');
+          echo 'Module configured with test keys' . PHP_EOL;
+          "
+        fi
+
+    - name: Install test dependencies
+      run: |
+        cd .github/scripts
+        npm install
+    
+    - name: Run E2E tests with Puppeteer
+      run: |
+        cd .github/scripts
+        BASE_URL=http://localhost npm test
+
+    - name: Cleanup
+      if: always()
+      run: docker compose down --volumes
+
