@@ -264,7 +264,9 @@ class Turnstile extends Module
             $this->context->controller->errors[] = $errorMessage;
         }
 
-        Tools::redirect('/?turnstile-failure=1');
+        $controllerName = $this->context->controller->php_self;
+        $currentUrl = $this->context->link->getPageLink($controllerName, null, null, ['turnstile-failure' => 1]);
+        Tools::redirect($currentUrl);
         
         // Check if it's an AJAX request
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
